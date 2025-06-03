@@ -1,0 +1,118 @@
+#!/bin/bash
+# status_hub.10s.sh — Clean sharable template version
+export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+
+# --- CONFIG ---
+START_DATE="2024-01-01"  # Date you want to count uptime from
+MOOD_LIST=("You got this 💪" "Focus. Breathe. Win. 🧘‍♂️" "Chaos is a ladder 🔥" "Today’s vibe: coffee ☕ + code" "Eat. Code. Sleep. Repeat." "Be the bug you wish to see in prod 🐞")
+
+# --- PERSONAL EVENTS (replace with yours) ---
+EVENT_1_DATE="2023-08-01"
+EVENT_2_DATE="2022-09-01"
+EVENT_3_START="2022-10-01"
+EVENT_3_END="2023-10-01"
+EVENT_4_DATE="2023-10-01"
+DEVICE_PURCHASE_DATE="2025-03-01"
+PROJECT_START_DATE="2023-06-01"
+TODAY=$(date +%F)
+
+# --- DATE DIFF FUNCTION ---
+date_diff_human() {
+  local start_date="$1"
+  local end_date="$2"
+  local start_sec=$(date -d "$start_date" +%s)
+  local end_sec=$(date -d "$end_date" +%s)
+  local diff_sec=$((end_sec - start_sec))
+  local days=$((diff_sec / 86400))
+  local years=$((days / 365))
+  local months=$(((days % 365) / 30))
+  local rem_days=$(((days % 365) % 30))
+  echo "${years}y ${months}m ${rem_days}d"
+}
+
+# --- UPTIME ---
+NOW=$(date +%s)
+START=$(date -d "$START_DATE" +%s)
+DAYS=$(((NOW - START) / 86400))
+MONTHS=$((DAYS / 30))
+REMAINDER=$((DAYS % 30))
+UPTIME=" ${MONTHS}m ${REMAINDER}d"
+
+# --- BATTERY ---
+cycle_count=$(system_profiler SPPowerDataType | awk -F': ' '/Cycle Count/ {print $2; exit}')
+if ((cycle_count < 300)); then battery_icon="🔋"
+elif ((cycle_count < 700)); then battery_icon="🟡"
+else battery_icon="🔴"; fi
+
+# --- DOCKER ---
+if docker info &>/dev/null; then
+  running_containers=$(docker ps --filter "status=running" --format '{{.Names}}' | wc -l | tr -d ' ')
+  docker_summary="🐳 $running_containers"
+else
+  docker_summary="❌ Docker Not Running"
+fi
+
+# --- MOOD ---
+mood_index=$(( $(date +%j) % ${#MOOD_LIST[@]} ))
+mood="🌈 ${MOOD_LIST[$mood_index]}"
+
+# --- SWAP USAGE ---
+swap_stats=$(sysctl -n vm.swapusage)
+swap_total=$(echo "$swap_stats" | awk '{print $3}')
+swap_used=$(echo "$swap_stats" | awk '{print $6}')
+swap="💾 Swap: ${swap_used} / ${swap_total}"
+
+# --- WEATHER ---
+weather_url="https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=42.2835&lon=18.8378"
+user_agent="YourName-WeatherScript/1.0 (https://github.com/yourusername)"
+temp=$(curl -s -H "User-Agent: $user_agent" "$weather_url" \
+  | jq -r '.properties.timeseries[0].data.instant.details.air_temperature')
+weather="🌤️ Weather: ${temp:-❌}°C"
+
+# --- CURRENCY ---
+CACHE_DIR="$HOME/.cache/swiftbar"
+mkdir -p "$CACHE_DIR"
+currency_file="$CACHE_DIR/currency.json"
+currency_url="https://open.er-api.com/v6/latest/USD"
+if [[ ! -f "$currency_file" || $((NOW - $(stat -f %m "$currency_file"))) -gt 300 ]]; then
+  curl -s "$currency_url" > "$currency_file"
+fi
+usd_rub=$(jq -r '.rates.RUB' "$currency_file")
+usd_eur=$(jq -r '.rates.EUR' "$currency_file")
+eur_rub=$(awk "BEGIN { printf \"%.4f\", $usd_rub / $usd_eur }")
+
+# --- CUSTOM TIMER (Example: eye drops) ---
+schedule=(660 900 1140 1380 180)
+now_min=$((10#$(date +%H)*60 + 10#$(date +%M)))
+for t in "${schedule[@]}"; do
+  if (( now_min < t || (now_min >= 1380 && t == 180) )); then
+    next=$t; break
+  fi
+done
+[[ -z "$next" ]] && next=${schedule[0]} && delta=$((1440 - now_min + next)) || delta=$((next - now_min))
+hours_left=$((delta / 60))
+mins_left=$((delta % 60))
+drop_timer="⏰ Next dose: $(printf '%02dч %02dм' $hours_left $mins_left)"
+
+# --- OUTPUT ---
+echo "$UPTIME $battery_icon ↻ ${cycle_count} $docker_summary"
+echo "---"
+echo "$drop_timer | bash=/bin/true terminal=false"
+echo "$weather | bash=/bin/true terminal=false"
+echo "💱 CURRENCY RATES: | bash=/bin/true terminal=false"
+echo "• 💵 1 USD = ${usd_rub:-❌} RUB | bash=/bin/true terminal=false"
+echo "• 💶 1 USD = ${usd_eur:-❌} EUR | bash=/bin/true terminal=false"
+echo "• 💶 1 EUR ≈ ${eur_rub:-❌} RUB | bash=/bin/true terminal=false"
+echo "---"
+echo "Docker: $running_containers containers | bash=/bin/true terminal=false"
+echo "Battery: $cycle_count cycles | bash=/bin/true terminal=false"
+echo "$swap | bash=/bin/true terminal=false"
+echo "Mac uptime: $DAYS days since $START_DATE | bash=/bin/true terminal=false"
+echo "---"
+echo "📌 Event 1 since $EVENT_1_DATE: $(date_diff_human "$EVENT_1_DATE" "$TODAY") | bash=/bin/true terminal=false"
+echo "📌 Event 2 since $EVENT_2_DATE: $(date_diff_human "$EVENT_2_DATE" "$TODAY") | bash=/bin/true terminal=false"
+echo "📌 Period: $(date_diff_human "$EVENT_3_START" "$EVENT_3_END") | bash=/bin/true terminal=false"
+echo "📌 Location since $EVENT_4_DATE: $(date_diff_human "$EVENT_4_DATE" "$TODAY") | bash=/bin/true terminal=false"
+echo "📱 Device since $DEVICE_PURCHASE_DATE: $(date_diff_human "$DEVICE_PURCHASE_DATE" "$TODAY") | bash=/bin/true terminal=false"
+echo "🧢 Project since $PROJECT_START_DATE: $(date_diff_human "$PROJECT_START_DATE" "$TODAY") | bash=/bin/true terminal=false"
+echo "$mood | bash=/bin/true terminal=false"
