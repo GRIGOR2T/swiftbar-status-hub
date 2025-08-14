@@ -20,19 +20,50 @@ TODAY=$(date +%F)
 date_diff_human() {
   local start_date="$1"
   local end_date="$2"
-  local start_sec=$(date -d "$start_date" +%s)
-  local end_sec=$(date -d "$end_date" +%s)
-  local diff_sec=$((end_sec - start_sec))
-  local days=$((diff_sec / 86400))
-  local years=$((days / 365))
-  local months=$(((days % 365) / 30))
-  local rem_days=$(((days % 365) % 30))
-  echo "${years}y ${months}m ${rem_days}d"
+  
+  # Parse dates (format YYYY-MM-DD)
+  local sy="${start_date%-*-*}"
+  local sm="${start_date#*-}"; sm="${sm%-*}"
+  local sd="${start_date##*-}"
+  
+  local ey="${end_date%-*-*}"
+  local em="${end_date#*-}"; em="${em%-*}"
+  local ed="${end_date##*-}"
+  
+  # Remove leading zeros for calculations
+  sy=$((10#$sy))
+  sm=$((10#$sm))
+  sd=$((10#$sd))
+  ey=$((10#$ey))
+  em=$((10#$em))
+  ed=$((10#$ed))
+  
+  local y=$((ey - sy))
+  local m=$((em - sm))
+  local d=$((ed - sd))
+  
+  if (( d < 0 )); then
+    m=$((m - 1))
+    d=$((d + 30))  # Simplified for template
+  fi
+  
+  if (( m < 0 )); then
+    y=$((y - 1))
+    m=$((m + 12))
+  fi
+  
+  echo "${y}y ${m}m ${d}d"
 }
 
 # --- UPTIME ---
 NOW=$(date +%s)
-START=$(date -d "$START_DATE" +%s)
+# Cross-platform date conversion
+if command -v gdate >/dev/null 2>&1; then
+  START=$(gdate -d "$START_DATE" +%s)
+else
+  # BSD date (macOS)
+  START=$(date -j -f "%Y-%m-%d" "$START_DATE" +%s 2>/dev/null || echo $NOW)
+fi
 DAYS=$(((NOW - START) / 86400))
 MONTHS=$((DAYS / 30))
 REMAINDER=$((DAYS % 30))
@@ -49,6 +80,7 @@ if docker info &>/dev/null; then
   running_containers=$(docker ps --filter "status=running" --format '{{.Names}}' | wc -l | tr -d ' ')
   docker_summary="🐳 $running_containers"
 else
+  running_containers="0"
   docker_summary="❌ Docker Not Running"
 fi
 
@@ -63,8 +95,9 @@ swap_used=$(echo "$swap_stats" | awk '{print $6}')
 swap="💾 Swap: ${swap_used} / ${swap_total}"
 
 # --- WEATHER ---
-weather_url="https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=42.2835&lon=18.8378"
-user_agent="YourName-WeatherScript/1.0 (https://github.com/yourusername)"
+# Example coordinates: New York City (replace with your location)
+weather_url="https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=40.7128&lon=-74.0060"
+user_agent="StatusHub-WeatherScript/1.0 (contact@yoursite.com)"
 temp=$(curl -s -H "User-Agent: $user_agent" "$weather_url" \
   | jq -r '.properties.timeseries[0].data.instant.details.air_temperature')
 weather="🌤️ Weather: ${temp:-❌}°C"
@@ -74,7 +107,15 @@ CACHE_DIR="$HOME/.cache/swiftbar"
 mkdir -p "$CACHE_DIR"
 currency_file="$CACHE_DIR/currency.json"
 currency_url="https://open.er-api.com/v6/latest/USD"
-if [[ ! -f "$currency_file" || $((NOW - $(stat -f %m "$currency_file"))) -gt 300 ]]; then
+# Cross-platform file age check
+should_update=true
+if [[ -f "$currency_file" ]]; then
+  # Check if file is newer than 5 minutes
+  if [[ $(find "$currency_file" -mmin -5 2>/dev/null) ]]; then
+    should_update=false
+  fi
+fi
+if [[ "$should_update" == "true" ]]; then
   curl -s "$currency_url" > "$currency_file"
 fi
 usd_rub=$(jq -r '.rates.RUB' "$currency_file")
@@ -92,7 +133,7 @@ done
 [[ -z "$next" ]] && next=${schedule[0]} && delta=$((1440 - now_min + next)) || delta=$((next - now_min))
 hours_left=$((delta / 60))
 mins_left=$((delta % 60))
-drop_timer="⏰ Next dose: $(printf '%02dч %02dм' $hours_left $mins_left)"
+drop_timer="⏰ Next reminder: $(printf '%02d:%02d' $hours_left $mins_left)"
 
 # --- OUTPUT ---
 echo "$UPTIME $battery_icon ↻ ${cycle_count} $docker_summary"

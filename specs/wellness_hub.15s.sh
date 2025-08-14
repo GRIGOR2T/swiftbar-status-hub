@@ -12,10 +12,10 @@ echo "💆 Wellness | dropdown=false"
 echo "---"
 
 # --- EYE REMINDER ---
-echo "👁 Eye break (20-20-20) | bash=/usr/bin/osascript param1=-e param2='display notification \"Сделай паузу и посмотри вдаль 20 секунд 👀\" with title \"Глаза отдыхают\"' terminal=false"
+echo "👁 Eye break (20-20-20) | bash=/usr/bin/osascript param1=-e param2='display notification \"Take a break and look 20 feet away for 20 seconds 👀\" with title \"Eye Rest\"' terminal=false"
 
 # --- STRETCH REMINDER ---
-echo "🧍‍♂️ Stretch your body | bash=/usr/bin/osascript param1=-e param2='display notification \"Разомнись! Пройди немного или сделай наклоны.\" with title \"Разминка тела\"' terminal=false"
+echo "🧍‍♂️ Stretch your body | bash=/usr/bin/osascript param1=-e param2='display notification \"Stretch! Walk around or do some bends.\" with title \"Body Stretch\"' terminal=false"
 
 echo "---"
 
