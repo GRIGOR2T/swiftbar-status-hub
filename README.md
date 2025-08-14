@@ -12,7 +12,7 @@ Displays local uptime, memory, weather, currency, Docker, battery, project timer
 - 🐳 Docker container counter
 - 🌤 Live weather (via [met.no](https://api.met.no))
 - 💱 Live currency exchange (via [open.er-api.com](https://www.exchangerate-api.com))
-- ⏰ Custom reminder timer (ex: eyedrops, water, breaks)
+- ⏰ Custom reminder timer (ex: eye drops, water, breaks)
 - 🧠 Daily random mood quote
 - 📌 Configurable event timers (e.g. country move, wedding, device purchase)
 
